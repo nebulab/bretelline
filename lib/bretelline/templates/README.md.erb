@@ -1,1 +1,65 @@
 # <%= app_name.humanize %>
+
+This is [Solidus](https://solidus.io/) eCommerce application.
+
+## Development Setup
+
+1. Clone the repo:
+
+  ```
+  $ cd ~/Code
+  $ git clone git@github.com:nebulab/<%= app_name.humanize %>.git
+  $ cd <%= app_name.humanize %>
+  ```
+
+2. Install dependencies and prepare database:
+
+  ```
+  $ ./bin/setup
+  ```
+
+3. You're up and running. Just start foreman:
+
+  ```
+  $ bundle exec invoker start invoker.ini
+  ```
+
+Notes:
+
+* Make sure you have PostgreSQL and Redis up and running
+* Seeds include a user that developer can use locally to login:
+
+  ```
+  Email: admin@example.com
+  Psw:   test123
+  ```
+
+## <%= app_name.humanize %> basic development style guide
+
+1. *Always* create separate branches and pull requests for adding/removing/changing code;
+2. Write feature and unit specs as needed and respect project guidelines (code coverange, quality metrics, ...);
+3. Use imperative commit messages with capitalized first letter (eg. "Add this feature" instead
+of "adds this feature"). Use descriptive commits (with both title and description) and respect title length;
+4. If we are working on a new feature, it's better to create seed data for the models we are working on to
+let other devs reproduce behavior or eventual issues with these;
+5. When porting some code from Solidus please use a separate commit referring to the original code you're porting
+with a link to the Solidus GH project;
+6. Please refer to [GitHub Ruby Styleguide](https://github.com/styleguide/ruby) when writing Ruby code.
+
+## Running tests
+
+<%= app_name.humanize %> is covered with basic fuctional tests using Rspec, FactoryGirl and Capybara (the same tools used by Solidus).
+Javascript tests are run via Selenium ChromeDriver so you'll need to install _Chrome_ first (which is required).
+
+To run the test suite run:
+
+  ```
+  $ rake db:test:prepare
+  $ rspec spec
+  ```
+
+Please aim to full test coverage.
+
+## Deploying <%= app_name.humanize %>
+
+Deploys depend on the app's configuration and can change from app to app. When in doubt ask [mtylty](https://github.com/mtylty).
