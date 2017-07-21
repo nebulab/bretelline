@@ -1,0 +1,10 @@
+machine:
+  services:
+    - redis
+test:
+  pre:
+    - mkdir $CIRCLE_ARTIFACTS/coverage $CIRCLE_ARTIFACTS/quality $CIRCLE_ARTIFACTS/security
+    - curl -s https://raw.githubusercontent.com/chronogolf/circleci-google-chrome/master/use_chrome_stable_version.sh | bash
+  post:
+    - bundle exec rubocop --format html -o $CIRCLE_ARTIFACTS/quality/rubocop.html
+    - bundle exec brakeman --exit-on-warn --confidence-level 2 -o $CIRCLE_ARTIFACTS/security/brakeman.html
