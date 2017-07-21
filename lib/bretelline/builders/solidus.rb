@@ -19,7 +19,8 @@ module Bretelline
       def rspec
         bundle_command "exec rails generate rspec:install"
         directory 'spec/support'
-        template 'spec/rails_helper.erb', 'spec/rails_helper.rb'
+        remove_file "spec/rails_helper.rb"
+        copy_file 'spec/rails_helper.rb', 'spec/rails_helper.rb'
         prepend_to_file 'spec/spec_helper.rb', "require 'support/simplecov'"
       end
 
