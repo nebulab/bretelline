@@ -7,9 +7,9 @@ if ENV['CIRCLE_ARTIFACTS']
 end
 
 # Evil options :D
-# SimpleCov.minimum_coverage 99
-# SimpleCov.minimum_coverage_by_file 90
-# SimpleCov.refuse_coverage_drop
+SimpleCov.minimum_coverage 99
+SimpleCov.minimum_coverage_by_file 90
+SimpleCov.refuse_coverage_drop
 
 SimpleCov.start 'rails' do
   add_filter 'config/application'
