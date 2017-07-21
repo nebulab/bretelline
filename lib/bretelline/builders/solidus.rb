@@ -22,6 +22,8 @@ module Bretelline
         remove_file "spec/rails_helper.rb"
         copy_file 'spec/rails_helper.rb', 'spec/rails_helper.rb'
         prepend_to_file 'spec/spec_helper.rb', "require 'support/simplecov'"
+        empty_directory 'spec/pages/sections'
+        empty_directory 'spec/factories'
       end
 
       def solidus
