@@ -9,6 +9,7 @@ module Bretelline
         solidus
         rspec
         ci
+        rubocop
       end
 
       def readme
@@ -42,6 +43,11 @@ module Bretelline
 
       def ci
         copy_file 'circle.yml', 'circle.yml'
+      end
+
+      def rubocop
+        copy_file 'rubocop.yml', '.rubocop.yml'
+        bundle_command 'exec rubocop -a'
       end
     end
   end
