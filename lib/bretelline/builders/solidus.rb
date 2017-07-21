@@ -8,6 +8,7 @@ module Bretelline
       def setup
         solidus
         rspec
+        ci
       end
 
       def readme
@@ -30,6 +31,10 @@ module Bretelline
         bundle_command "exec rails g spree:install --sample=false"
         bundle_command "exec rails g solidus:auth:install"
         bundle_command "exec rake railties:install:migrations"
+      end
+
+      def ci
+        copy_file 'circle.yml', 'circle.yml'
       end
     end
   end
