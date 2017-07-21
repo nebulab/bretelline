@@ -34,7 +34,7 @@ module Bretelline
     def bretelline
       bundle_command 'install'
       invoke :create_database
-      build :install_engine
+      build :setup
       invoke :migrate_database
     end
 
