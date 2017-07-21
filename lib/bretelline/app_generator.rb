@@ -3,7 +3,10 @@ module Bretelline
     class_option :database, type: :string, aliases: "-d", default: "postgresql",
                             desc: "Configure for selected database (options: #{DATABASES.join('/')})"
 
-    class_option :skip_test_unit, type: :boolean, default: true,
+    class_option :skip_spring, type: :boolean, default: true,
+                               desc: "Don't install Spring application preloader"
+
+    class_option :skip_test, type: :boolean, default: true,
                              desc: "Skip Test Unit"
 
     class_option :skip_system_test, type: :boolean, default: true,
