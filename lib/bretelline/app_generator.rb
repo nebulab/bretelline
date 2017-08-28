@@ -18,6 +18,9 @@ module Bretelline
     class_option :skip_action_cable, type: :boolean, aliases: "-C", default: true,
                                      desc: "Skip Action Cable files"
 
+    class_option :skip_git_init, type: :boolean, aliases: "-C", default: false,
+                                     desc: "Skip Git init and initial commit"
+
     def source_paths
       [
         Rails::Generators::AppGenerator.source_root,
@@ -31,6 +34,10 @@ module Bretelline
     end
 
     def run_bundle
+      # Do nothing, it will be run by the bretelline command
+    end
+
+    def gitignore
       # Do nothing, it will be run by the bretelline command
     end
 

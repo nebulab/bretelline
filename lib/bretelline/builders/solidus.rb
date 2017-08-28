@@ -10,6 +10,8 @@ module Bretelline
         rspec
         ci
         rubocop
+        gitignore
+        git_setup_and_initial_commit unless options[:skip_git_init]
       end
 
       def readme
@@ -48,6 +50,16 @@ module Bretelline
       def rubocop
         copy_file 'rubocop.yml', '.rubocop.yml'
         bundle_command 'exec rubocop -a'
+      end
+
+      def gitignore
+        copy_file 'gitignore', '.gitignore'
+      end
+
+      def git_setup_and_initial_commit
+        git :init
+        git add: '.'
+        git commit: "-m \"Initial commit: bretelline #{app_name}\""
       end
     end
   end
