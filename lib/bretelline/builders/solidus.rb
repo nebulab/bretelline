@@ -42,7 +42,8 @@ module Bretelline
       end
 
       def ci
-        copy_file 'circle.yml', 'circle.yml'
+        directory '.circle'
+        copy_file 'circle.yml', '.circle/config.yml'
       end
 
       def rubocop

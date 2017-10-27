@@ -1,10 +1,233 @@
-machine:
-  services:
-    - redis
-test:
-  pre:
-    - mkdir $CIRCLE_ARTIFACTS/coverage $CIRCLE_ARTIFACTS/quality $CIRCLE_ARTIFACTS/security
-    - curl -s https://raw.githubusercontent.com/chronogolf/circleci-google-chrome/master/use_chrome_stable_version.sh | bash
-  post:
-    - bundle exec rubocop --format html -o $CIRCLE_ARTIFACTS/quality/rubocop.html
-    - bundle exec brakeman --exit-on-warn --confidence-level 2 -o $CIRCLE_ARTIFACTS/security/brakeman.html
+version: 2
+
+workflows:
+  version: 2
+
+  build-approve-deploy:
+    jobs:
+      - bundle
+      - static-check:
+          requires:
+            - bundle
+      - assets:
+          requires:
+            - bundle
+      - tests:
+          requires:
+            - assets
+            - static-check
+      - push-assets:
+          requires:
+            - tests
+          filters:
+            branches:
+              only: master
+      - go-staging:
+          requires:
+            - push-assets
+      - prod-changes:
+          requires:
+            - push-assets
+      - approve-prod:
+          type: approval
+          requires:
+            - push-assets
+      - go-production:
+          requires:
+            - approve-prod
+      - cleanup:
+          requires:
+            - go-production
+
+jobs:
+  bundle:
+    docker:
+      - image: circleci/ruby:2.2.7
+    steps:
+      # Before using this command, add a user key with read/write access from
+      # https://circleci.com/gh/nebulab/-project-/edit#ssh
+      - add_ssh_keys
+      - checkout
+      - restore_cache:
+          keys:
+            - gem-cache-{{ checksum "Gemfile.lock" }}
+      - run:
+          name: Bundle Install
+          command: bundle install --path vendor/bundle
+      - save_cache:
+          key: gem-cache-{{ checksum "Gemfile.lock" }}
+          paths: vendor/bundle
+      - save_cache:
+          key: git-cache-{{ .Revision }}
+          paths: .
+
+  static-check:
+    docker:
+      - image: circleci/ruby:2.2.7
+    steps:
+      - restore_cache:
+          keys:
+            - git-cache-{{ .Revision }}
+      - restore_cache:
+          keys:
+            - gem-cache-{{ checksum "Gemfile.lock" }}
+      - run:
+          name: Bundle Install
+          command: bundle install --path vendor/bundle
+      - run:
+          name: Static Code Analysis
+          command: |
+            mkdir /tmp/quality /tmp/security
+            bundle exec rubocop --format html -o /tmp/quality/rubocop.html
+            bundle exec brakeman --exit-on-warn -o /tmp/security/brakeman.html
+      - store_artifacts:
+          path: /tmp/quality
+      - store_artifacts:
+          path: /tmp/security
+
+  # Compile assets
+  assets:
+    docker:
+      - image: circleci/ruby:2.2.7-node
+        environment:
+          RAILS_ENV: production
+          DATABASE_URL: postgresql://root@127.0.0.1/circle_test?pool=5
+      - image: circleci/postgres:9.4.11
+    steps:
+      - restore_cache:
+          keys:
+            - git-cache-{{ .Revision }}
+      - restore_cache:
+          keys:
+            - gem-cache-{{ checksum "Gemfile.lock" }}
+      - run:
+          name: Bundle Install
+          command: bundle install --path vendor/bundle
+      - restore_cache:
+          keys:
+            - assets-cache-{{ .Revision }}
+            - assets-cache
+      - run:
+          name: Compile Assets
+          command: bundle exec rake assets:precompile
+      - save_cache:
+          key: assets-cache-{{ .Revision }}
+          paths: public/assets
+
+  tests:
+    docker:
+      - image: circleci/ruby:2.2.7-node
+        environment:
+          RAILS_ENV: test
+          DATABASE_URL: postgresql://root@127.0.0.1/circle_test?pool=5
+      - image: circleci/postgres:9.4.11
+      - image: redis:2.8.6
+      - image: selenium/standalone-firefox:3.6.0
+        environment:
+          DISPLAY: ':98'
+
+    steps:
+      - restore_cache:
+          keys:
+            - git-cache-{{ .Revision }}
+      - restore_cache:
+          keys:
+            - gem-cache-{{ checksum "Gemfile.lock" }}
+      - run:
+          name: Bundle Install
+          command: bundle install --path vendor/bundle
+      - restore_cache:
+          keys:
+            - assets-cache-{{ .Revision }}
+            - assets-cache
+      - run:
+          name: Database Setup
+          command: bundle exec rake db:schema:load
+      - run:
+          name: Rspec
+          command: |
+            mkdir /tmp/coverage
+            bundle exec rspec
+      - store_artifacts:
+          path: /tmp/coverage
+
+  # Commit compiled assets to master
+  push-assets:
+    docker:
+      - image: circleci/ruby:2.2.7
+    steps:
+      - add_ssh_keys
+      - restore_cache:
+          keys:
+            - git-cache-{{ .Revision }}
+      - restore_cache:
+          keys:
+            - assets-cache-{{ .Revision }}
+            - assets-cache
+      - run:
+          name: Commit Assets
+          command: |
+            set +eo pipefail
+            mkdir ~/.ssh
+            echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+            git config --global push.default simple
+            git config --global user.email "service@nebulab.it"
+            git config --global user.name "Robby Robot"
+            git add public/assets
+            git commit -m "[ci skip] Precompile assets" -m "Related to ref $CIRCLE_SHA1"
+            git push
+  # Staging deploy
+  go-staging:
+    docker:
+      - image: mesosphere/aws-cli
+    steps:
+      - deploy:
+          name: Deploy Staging
+          command: aws opsworks create-deployment --stack-id 60f1ac6b-e452-4986-b3ff-4d92eaf73bc7 --app-id c1a49a85-9ade-45c8-a033-0431082fe5d3 --command "{\"Name\":\"deploy\"}"
+
+  # List code changes going to production on artifacts
+  prod-changes:
+    docker:
+      - image: circleci/ruby:2.2.7
+    steps:
+      - restore_cache:
+          keys:
+            - git-cache-{{ .Revision }}
+      - restore_cache:
+          keys:
+            - last-head
+      # Do a git pull on repo from cache because if the CI committed compiled
+      # assets we want to include that commit in the changes listed as being deployed.
+      - run:
+          name: Store Changes
+          command: |
+            set +eo pipefail
+            mkdir ~/.ssh
+            echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+            git pull
+            ([ -e .last_deploy ] && git log --reverse --pretty=format:"%h: %s (%cn, %cr)" `cat .last_deploy`.. > /tmp/changes.txt)
+            true
+      - store_artifacts:
+          path: /tmp/changes.txt
+
+  # Production Deploy
+  go-production:
+    docker:
+      - image: mesosphere/aws-cli
+    steps:
+      - deploy:
+          name: Deploy to Production
+          command: aws opsworks create-deployment --stack-id 8c7afa68-f954-4914-a49e-470858db682c --app-id 27496844-c931-49e4-ae7a-ebcbf359816b --command "{\"Name\":\"deploy\"}"
+
+  cleanup:
+    docker:
+      - image: circleci/ruby:2.2.7
+    steps:
+      - add_ssh_keys
+      - checkout
+      - run:
+          name: Remember Last Deploy Ref
+          command: git rev-parse HEAD > .last_deploy
+      - save_cache:
+          key: last-head-{{ epoch }}
+          paths: .last_deploy
